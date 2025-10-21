@@ -46,6 +46,10 @@ const (
 	TargetPlatformUnix = "unix"
 	//TargetPlatformWindows used for cleaner code
 	TargetPlatformWindows = "windows"
+
+	TargetShellPosix      = "posix"
+	TargetShellCmd        = "cmd"
+	TargetShellPowerShell = "powershell"
 )
 
 // connectionInfo is decoded from the ConnInfo of the resource. These are the
@@ -62,6 +66,7 @@ type connectionInfo struct {
 	Agent          bool
 	ScriptPath     string
 	TargetPlatform string
+	TargetShell    string
 	Timeout        string
 	TimeoutVal     time.Duration
 
@@ -119,6 +124,8 @@ func decodeConnInfo(v cty.Value) (*connectionInfo, error) {
 			connInfo.ScriptPath = v.AsString()
 		case "target_platform":
 			connInfo.TargetPlatform = v.AsString()
+		case "target_shell":
+			connInfo.TargetShell = v.AsString()
 		case "timeout":
 			connInfo.Timeout = v.AsString()
 		case "proxy_scheme":
@@ -202,6 +209,25 @@ func parseConnectionInfo(v cty.Value) (*connectionInfo, error) {
 	} else if connInfo.TargetPlatform != TargetPlatformUnix && connInfo.TargetPlatform != TargetPlatformWindows {
 		return nil, fmt.Errorf("target_platform for provisioner has to be either %s or %s", TargetPlatformUnix, TargetPlatformWindows)
 	}
+
+	if connInfo.TargetShell == "" {
+		// set default target_shell per platform
+		if connInfo.TargetPlatform == TargetPlatformWindows {
+			connInfo.TargetShell = TargetShellCmd
+		} else {
+			connInfo.TargetShell = TargetShellPosix
+		}
+	} else {
+		// validate target_shell per platform
+		if connInfo.TargetPlatform == TargetPlatformWindows && connInfo.TargetShell != TargetShellCmd && connInfo.TargetShell != TargetShellPowerShell {
+			return nil, fmt.Errorf("target_shell for provisioner (with target_platform = %q) has to be either %s or %s",
+				TargetPlatformWindows, TargetShellCmd, TargetShellPowerShell)
+		} else if connInfo.TargetPlatform == TargetPlatformUnix && connInfo.TargetShell != TargetShellPosix {
+			return nil, fmt.Errorf("target_shell for provisioner (with target_platform = %q) has to be %s",
+				TargetPlatformUnix, TargetShellPosix)
+		}
+	}
+
 	// Choose an appropriate default script path based on the target platform. There is no single
 	// suitable default script path which works on both UNIX and Windows targets.
 	if connInfo.ScriptPath == "" && connInfo.TargetPlatform == TargetPlatformUnix {

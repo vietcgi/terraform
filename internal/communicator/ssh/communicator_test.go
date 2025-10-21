@@ -660,7 +660,7 @@ func TestAccHugeUploadFile(t *testing.T) {
 		return scpUploadFile(targetFile, source, w, stdoutR, size)
 	}
 
-	cmd, err := quoteShell([]string{"scp", "-vt", targetDir}, c.connInfo.TargetPlatform)
+	cmd, err := quoteScpCommand([]string{"scp", "-vt", targetDir}, c.connInfo.TargetShell)
 	if err != nil {
 		t.Fatal(err)
 	}
